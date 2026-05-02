@@ -1,0 +1,6 @@
+gymnasium==0.29.1
+flappy-bird-gymnasium
+stable-baselines3[extra]
+pygame
+moviepy
+tensorboard

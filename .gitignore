@@ -1,0 +1,19 @@
+# Virtual Environment
+venv/
+env/
+.env
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Project Directories (Large Files)
+models/
+videos/
+edited_videos/
+logs/
+
+# Scratch/Personal Files
+youtube_script_notes.md
+test_text.py
+test_text.png
