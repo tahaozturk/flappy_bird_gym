@@ -1,4 +1,6 @@
+import argparse
 import os
+from datetime import datetime
 import gymnasium as gym
 import flappy_bird_gymnasium
 from stable_baselines3 import PPO
@@ -6,6 +8,18 @@ from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import SubprocVecEnv
 import cv2
+
+NET_ARCH = {
+    "small":  [16, 16],
+    "medium": [64, 64],
+    "large":  [256, 256],
+}
+
+DEFAULT_STEPS = {
+    "small":  250_000,
+    "medium": 500_000,
+    "large":  1_000_000,
+}
 
 class ScoreOverlayWrapper(gym.Wrapper):
     """
@@ -42,20 +56,18 @@ class ScoreOverlayWrapper(gym.Wrapper):
         return frame
 
 
-def train_model(name, net_arch, total_timesteps, eval_freq_per_env):
-    """
-    Trains a PPO model with the given network architecture and step limits,
-    outputting perfectly organized logs, models, and EXACTLY 20 videos.
-    """
-    LOG_DIR = f"./logs/{name}/"
-    MODEL_DIR = f"./models/{name}/"
-    VIDEO_DIR = f"./videos/{name}/"
+def train_model(name, net_arch, total_timesteps, timestamp):
+    num_cpu = 4
+    eval_freq_per_env = max(1, total_timesteps // (20 * num_cpu))
+
+    LOG_DIR = f"./logs/{name}/{timestamp}/"
+    MODEL_DIR = f"./models/{name}/{timestamp}/"
+    VIDEO_DIR = f"./videos/{name}/{timestamp}/"
 
     os.makedirs(LOG_DIR, exist_ok=True)
     os.makedirs(MODEL_DIR, exist_ok=True)
     os.makedirs(VIDEO_DIR, exist_ok=True)
 
-    num_cpu = 4
     train_env = make_vec_env(
         "FlappyBird-v0", 
         n_envs=num_cpu, 
@@ -111,23 +123,29 @@ def train_model(name, net_arch, total_timesteps, eval_freq_per_env):
 
 
 def main():
-    # 1. SMALL MODEL (16 neurons per layer)
-    # We train it for 250,000 steps. 
-    # To get 20 videos: 250k / 20 = 12,500 total steps per eval.
-    # 12,500 total / 4 cpu environments = 3125 eval_freq_per_env
-    train_model("small", [16, 16], 250000, 3125)
+    parser = argparse.ArgumentParser(description="Train a PPO agent on Flappy Bird")
+    parser.add_argument(
+        "--size",
+        choices=["small", "medium", "large"],
+        help="Model size to train (default: train all three)",
+    )
+    parser.add_argument(
+        "--steps",
+        type=int,
+        help="Total training timesteps (default: size-specific preset)",
+    )
+    args = parser.parse_args()
 
-    # 2. MEDIUM MODEL (64 neurons per layer)
-    # We train it for 500,000 steps. 
-    # To get 20 videos: 500k / 20 = 25,000 total steps per eval.
-    # 25,000 total / 4 cpu environments = 6250 eval_freq_per_env
-    train_model("medium", [64, 64], 500000, 6250)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # 3. LARGE MODEL (256 neurons per layer - the max size)
-    # We train it for 1,000,000 steps. 
-    # To get 20 videos: 1M / 20 = 50,000 total steps per eval.
-    # 50,000 total / 4 cpu environments = 12500 eval_freq_per_env
-    train_model("large", [256, 256], 1000000, 12500)
+    if args.size:
+        sizes = [args.size]
+    else:
+        sizes = ["small", "medium", "large"]
+
+    for size in sizes:
+        steps = args.steps if args.steps is not None else DEFAULT_STEPS[size]
+        train_model(size, NET_ARCH[size], steps, timestamp)
 
 if __name__ == "__main__":
     main()
